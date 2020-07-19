@@ -6,13 +6,12 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
 // Creating map for storing randomly generated strigs for user authentication
 let map = new Map();
-
-console.log(process.env.API_KEY);
 
 //For using the ejs module for the usage of templating.
 app.set("view engine", "ejs");
@@ -29,12 +28,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 
-
+// Connecting to mongo db and creating database
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true, useUnifiedTopology: true });
 
-
+// Createing Schema  
 const userSchema = new mongoose.Schema({
-    id: String,
     firstName: String,
     lastName: String,
     email: String,
@@ -65,12 +63,12 @@ app.get("/users/login", function (req, res) {
 app.post("/users/register", function (req, res) {
 
     // Generating a random string token for user with min length 20
-    let newid = makeid((Math.random()*30)+20);
+    // let newid = makeid((Math.random() * 30) + 20.);
     const newUser = new User({
-        id: newid,
+        // id: newid,
         firstName: req.body.firstName,
         lastName: req.body.lastName,
-        email: req.body.username,
+        email: req.body.email,
         password: req.body.password
     });
     newUser.save(function (err) {
@@ -78,66 +76,96 @@ app.post("/users/register", function (req, res) {
             console.log(err);
         } else {
             // res.render("secrets");
-            res.json({
-                token: newid
+            // res.json({
+            //     token: newid
+            // });
+            jwt.sign({ email: newUser.email }, process.env.SECRET, function (err, token) {
+                res.json({
+                    token: token
+                }).sendStatus(200);
             });
         }
     });
 });
 
 app.post("/users/login", function (req, res) {
-    const username = req.body.username;
+    
+    const email = req.body.email;
     const password = req.body.password;
-
-    User.findOne({ email: username }, function (err, foundUser) {
+    User.findOne({ email: email }, function (err, foundUser) {
         if (err) {
             console.log(err);
         } else {
             if (foundUser) {
                 if (foundUser.password === password) {
                     // res.render("secrets");
-                    res.json({
-                        token: foundUser.id
-                    });
+                    jwt.sign({ email: email }, process.env.SECRET, function (err, token) {
+                        res.json({
+                            token: token
+                        });
+                    })
+                } else {
+                    res.sendStatus(401);
                 }
+            } else {
+                res.sendStatus(404);
             }
         }
     });
 });
 
-app.patch("/users/update", function(req, res){
-    const string = req.headers["authorization"];
-    User.updateOne({id: string}, {$set: req.body}, function(err){
-        if(err){
+app.patch("/users/update", verifyToken, function (req, res) {
+    jwt.verify(req.token, process.env.secret, function (err, decoded) {
+        if (err) {
             res.sendStatus(401);
         } else {
-            res.send("Successfully updated");
+            // res.write("Post created");
+            // res.write(authData);
+            // res.send();
+            User.updateOne({ email: decoded.email },
+                {
+                    $set: {
+                        firstName: req.body.firstName,
+                        lastName: req.body.lastName
+                    }
+                }, function (err) {
+                    if (err) {
+                        res.sendStatus(401);
+                    } else {
+                        res.send("Successfully updated");
+                    }
+                });
         }
     });
+
 });
 
-app.delete("/users/delete", function(req, res){
-    const string = req.headers["authorization"];
-    User.deleteOne({id: string}, function(err){
-        if(err){
+app.delete("/users/delete", verifyToken, function (req, res) {
+    jwt.verify(req.token, process.env.secret, function (err, decoded) {
+        if (err) {
             res.sendStatus(401);
         } else {
-            res.send("Successfully Deleted");
+            User.deleteOne({ email: decoded.email }, function (err) {
+                if (err) {
+                    res.sendStatus(401);
+                } else {
+                    res.send("Successfully Deleted");
+                }
+            });
         }
     });
 
-
 });
 
-function makeid(length) {
-    var result           = '';
-    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    var charactersLength = characters.length;
-    for ( var i = 0; i < length; i++ ) {
-       result += characters.charAt(Math.floor(Math.random() * charactersLength));
-    }
-    return result;
- }
+// function makeid(length) {
+//     var result = '';
+//     var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+//     var charactersLength = characters.length;
+//     for (var i = 0; i < length; i++) {
+//         result += characters.charAt(Math.floor(Math.random() * charactersLength));
+//     }
+//     return result;
+// }
 
 
 app.listen(3000, function () {
@@ -148,21 +176,21 @@ app.listen(3000, function () {
 
 // Verify Token
 // next parameter is used for proceding the execution from where it was called
-// function verifyToken(req, res, next){
-//     // Get auth header value
-//     const bearerHeader = req.headers["authorization"];
-//     // check if bearer is undefined
-//     if(typeof bearerHeader !== "undefined") {
-//         // split at the space
-//         const bearer = bearerHeader.split(" ");
-//         // Get token from array
-//         const bearerToken = bearer[1];
-//         // Set the token
-//         req.token = bearerToken;
-//         // next middleware
-//         next();
-//     } else {
-//         // Forbidden
-//         res.sendStatus(403);
-//     }
-// }
+function verifyToken(req, res, next) {
+    // Get auth header value
+    const bearerHeader = req.headers["authorization"];
+    // check if bearer is undefined
+    if (typeof bearerHeader !== "undefined") {
+        // split at the space
+        const bearer = bearerHeader.split(" ");
+        // Get token from array
+        const bearerToken = bearer[1];
+        // Set the token
+        req.token = bearerToken;
+        // next middleware
+        next();
+    } else {
+        // Forbidden
+        res.sendStatus(403);
+    }
+}
