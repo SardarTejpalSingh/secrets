@@ -14,13 +14,9 @@ const app = express();
 // Use ejs module for templating.
 app.set("view engine", "ejs");
 
-// Body Parser
-// Body-parser module parses the JSON, buffer, string and URL encoded data submitted using HTTP POST request.
-// ?
 // Use body-parser for parsing the data 
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// For asking express to load the local static files like css and others because by default it does not load them.
 // Load static files
 app.use(express.static("public"));
 
@@ -137,7 +133,6 @@ app.post("/users/login", function (req, res) {
                     })
                 } else {
                     // If the password is incorrect, sending unauthorized response
-                    // res.sendStatus(401);
                     res.status(401).send("Incorrect password");
                 }
             } else {
@@ -149,7 +144,7 @@ app.post("/users/login", function (req, res) {
 });
 
 // User Update
-// Extracting the token with verifyToken function from request header, authorization.
+// Extracting the token with verifyToken function.
 app.patch("/users/update", verifyToken, function (req, res) {
     // Verifying the jwt token, if correct we get decoded payload.
     jwt.verify(req.token, process.env.secret, function (err, decoded) {
