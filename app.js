@@ -27,11 +27,11 @@ app.use(express.static("public"));
 // Connect to mongo db and create userDB database
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Create Schema  
+// Create user schema
 const userSchema = new mongoose.Schema({
     firstName: String,
     lastName: String,
-    // email and password as required while registering
+    // email and password will be required while registering
     email: {
         type: String,
         required: true
@@ -42,11 +42,11 @@ const userSchema = new mongoose.Schema({
     }
 });
 
-// register encrypt plugin to our schema to for encryption of our password field
+// encrypting password field 
 userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
 
-// ?
-// Set a new user model. Creation of User collection using user schema
+
+// Creating User collection from userSchema
 const User = new mongoose.model("User", userSchema);
 
 // Render home page for the home(/) route
@@ -73,7 +73,7 @@ app.post("/users/register", function (req, res) {
         password: req.body.password
     });
     // Check if the user already exist in the collection
-    newUser.findOne({email: email}, function(err, user){
+    User.findOne({email: newUser.email}, function(err, user){
         if(user){
             res.send("User exists");
         } else {
@@ -81,15 +81,19 @@ app.post("/users/register", function (req, res) {
             newUser.save(function (err) {
                 if (err) {
                     // If any error send the error.
-                    res.send(err);
+                    res.send(err).sendStatus(404);
                 } else {
                     // Creating a string token with help of JWT using default RSA encryption algorithm
                     jwt.sign({ email: newUser.email }, process.env.SECRET, function (err, token) {
-                        // Should I write err statement here?
-                        // Sending token as response to user if there were no errors
-                        res.json({
-                            token: token
-                        }).sendStatus(200);
+                        
+                        if(err){
+                            res.sendStatus(401);
+                        } else {
+                            // Sending token as response to user if there were no errors
+                            res.json({
+                                token: token
+                            }).sendStatus(200);
+                        }
                     });
                 }
             });
@@ -134,7 +138,7 @@ app.patch("/users/update", verifyToken, function (req, res) {
     // Verifying the jwt token, if correct we get decoded payload.
     jwt.verify(req.token, process.env.secret, function (err, decoded) {
         if (err) {
-            // Reponding unauthorized 401 error
+            // Responding unauthorized 401 error
             res.sendStatus(401);
         } else {
             // Searching with help of email in the User collection.
