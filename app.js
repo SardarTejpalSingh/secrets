@@ -7,6 +7,7 @@ const ejs = require("ejs");
 const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
 const jwt = require("jsonwebtoken");
+var validator = require('validator');
 
 const app = express();
 
@@ -34,7 +35,12 @@ const userSchema = new mongoose.Schema({
     // email and password will be required while registering
     email: {
         type: String,
-        required: true
+        required: true,
+        // Validating email
+        validate:{
+            validator: validator.isEmail,
+            message: 'Entered value is not a valid email'
+        }
     },
     password: {
         type: String,
@@ -65,23 +71,28 @@ app.get("/users/login", function (req, res) {
 
 // User registration 
 app.post("/users/register", function (req, res) {
-    // Creating a new document for new user.
-    const newUser = new User({
-        firstName: req.body.firstName,
-        lastName: req.body.lastName,
-        email: req.body.email,
-        password: req.body.password
-    });
+    
     // Check if the user already exist in the collection
-    User.findOne({email: newUser.email}, function(err, user){
+    User.findOne({email: req.body.email}, function(err, user){
+        if(err){
+            console.log(err);
+        }
         if(user){
             res.send("User exists");
         } else {
+            // Creating a document for new user.
+            const newUser = new User({
+                firstName: req.body.firstName,
+                lastName: req.body.lastName,
+                email: req.body.email,
+                password: req.body.password
+            });
             // Saving the document in User collection
             newUser.save(function (err) {
                 if (err) {
                     // If any error send the error.
-                    res.send(err).sendStatus(404);
+                    console.log(err);
+                    res.sendStatus(404);
                 } else {
                     // Creating a string token with help of JWT using default RSA encryption algorithm
                     jwt.sign({ email: newUser.email }, process.env.SECRET, function (err, token) {
@@ -92,7 +103,7 @@ app.post("/users/register", function (req, res) {
                             // Sending token as response to user if there were no errors
                             res.json({
                                 token: token
-                            }).sendStatus(200);
+                            });
                         }
                     });
                 }
@@ -116,17 +127,22 @@ app.post("/users/login", function (req, res) {
                 if (foundUser.password === password) {
                     // Creating a string token with help of JWT using default RSA encryption algorithm
                     jwt.sign({ email: email }, process.env.SECRET, function (err, token) {
-                        res.json({
-                            token: token
-                        });
+                        if(err){
+                            console.log(err);
+                        } else {
+                            res.json({
+                                token: token
+                            });
+                        }
                     })
                 } else {
                     // If the password is incorrect, sending unauthorized response
-                    res.sendStatus(401);
+                    // res.sendStatus(401);
+                    res.status(401).send("Incorrect password");
                 }
             } else {
                 // If user not found sending 404 not found response
-                res.sendStatus(404);
+                res.status(401).send("Incorrect email");
             }
         }
     });
@@ -154,7 +170,8 @@ app.patch("/users/update", verifyToken, function (req, res) {
                         // If email not found, responding unauthorized 401 error.
                         res.sendStatus(401);
                     } else {
-                        res.send("Successfully updated");
+                        // 
+                        res.status(200).send("Successfully updated");
                     }
                 });
         }
@@ -205,10 +222,9 @@ function verifyToken(req, res, next) {
         const bearerToken = bearer[1];
         // Set the token
         req.token = bearerToken;
-        // next middleware
         next();
     } else {
-        // Responding Unauthorizer 401 error
-        res.sendStatus(401);
+        // Responding Bad request 400 error
+        res.sendStatus(400);
     }
 }
