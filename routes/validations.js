@@ -1,5 +1,3 @@
-
-
 // Verify Token
 // next parameter is used for proceding the execution from where it was called
 function verifyToken(req, res, next) {

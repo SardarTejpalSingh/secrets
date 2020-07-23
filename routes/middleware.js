@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
 const validate = require("./validations.js");
 const jwt = require("jsonwebtoken");
-var validator = require('validator');
+const validator = require('validator');
 const bodyParser = require("body-parser");
 
 const app = express();
@@ -56,38 +56,27 @@ function register(req, res) {
                 password: req.body.password
             });
             // Save the document in User collection
-            newUser.save(function (err) {
+            newUser.save(async function (err) {
                 if (err) {
                     // If any error send the error.
                     console.log(err);
                     res.sendStatus(404);
                 } else {
                     // Create a string token with help of JWT using default RSA encryption algorithm
-                    jwt.sign({ email: newUser.email }, process.env.SECRET, function (err, token) {
-
-                        if (err) {
-                            res.sendStatus(401);
-                        } else {
-                            // Sending token as response to user if there were no errors
-                            res.json({
-                                token: token
-                            });
-                        }
-                    });
+                    const token = await generateToken(newUser.email);
+                    res.json({ token });
                 }
             });
         }
     });
 }
 
-
-
 function find(req, res) {
     // User login with email and password
     const email = req.body.email;
     const password = req.body.password;
     // Searching User collection with email.
-    User.findOne({ email: email }, function (err, foundUser) {
+    User.findOne({ email: email }, async function (err, foundUser) {
         if (err) {
             res.send(err);
         } else {
@@ -95,15 +84,8 @@ function find(req, res) {
                 // Decrypt the passowrd and checks if the entered password is same.
                 if (foundUser.password === password) {
                     // Create a string token with help of JWT using default RSA encryption algorithm
-                    jwt.sign({ email: email }, process.env.SECRET, function (err, token) {
-                        if (err) {
-                            console.log(err);
-                        } else {
-                            res.json({
-                                token: token
-                            });
-                        }
-                    })
+                    const token = await generateToken(email);
+                    res.json({ token });
                 } else {
                     // If the password is incorrect, sending unauthorized response
                     res.status(401).send("Incorrect password");
@@ -116,6 +98,10 @@ function find(req, res) {
     });
 }
 
+
+async function generateToken(email) {
+    return await jwt.sign({ email: email }, process.env.SECRET);
+}
 
 function deleteOne(req, res) {
     jwt.verify(req.token, process.env.secret, function (err, decoded) {

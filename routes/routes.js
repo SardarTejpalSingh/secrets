@@ -5,15 +5,11 @@ const validate = require("./validations.js");
 const app = express();
 const { find, register, deleteOne, update } = require("./middleware.js");
  
-
-
 app.use(bodyParser.urlencoded({ extended: true }));
 const router = express.Router();
 router.get("/some", function(req, res){
     console.log("Some message");
 });
-
-
 
 // Render home page for the home(/) route
 router.get("/", function (req, res) {
