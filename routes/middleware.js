@@ -1,15 +1,8 @@
-const express = require("express");
 const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
-const validate = require("./validations.js");
 const jwt = require("jsonwebtoken");
 const validator = require('validator');
-const bodyParser = require("body-parser");
 
-const app = express();
-
-
-app.use(bodyParser.urlencoded({ extended: true }));
 // Connect to mongo db and create userDB database
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -149,6 +142,5 @@ function update(req, res) {
         }
     });
 }
-
 
 module.exports = { register, find, deleteOne, update }

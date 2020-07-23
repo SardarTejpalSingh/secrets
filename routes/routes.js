@@ -1,11 +1,7 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const validate = require("./validations.js");
-
-const app = express();
+const { verifyToken } = require("./validations.js");
 const { find, register, deleteOne, update } = require("./middleware.js");
  
-app.use(bodyParser.urlencoded({ extended: true }));
 const router = express.Router();
 router.get("/some", function(req, res){
     console.log("Some message");
@@ -31,11 +27,10 @@ router.post("/users/login", find);
 
 // User Update
 // Extracting the token with verifyToken function.
-router.patch("/users/update", validate.verifyToken, update);
+router.patch("/users/update", verifyToken, update);
 
 // User deletion
 // Extracting JWT token with verifyToken function
-router.delete("/users/delete", validate.verifyToken, deleteOne);
+router.delete("/users/delete", verifyToken, deleteOne);
 
 module.exports = router;
-
